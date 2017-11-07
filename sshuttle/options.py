@@ -170,10 +170,11 @@ class MyArgumentParser(ArgumentParser):
         return [arg_line]
 
 
-parser = MyArgumentParser(
-    prog="sshuttle",
+parser = ArgumentParser(
+    prog="sshuttle-telepresence",
     usage="%(prog)s [-l [ip:]port] [-r [user@]sshserver[:port]] <subnets...>",
-    fromfile_prefix_chars="@"
+    description="Modified for Telepresence: " +
+    "https://github.com/datawire/telepresence/issues/247"
 )
 parser.add_argument(
     "subnets",
