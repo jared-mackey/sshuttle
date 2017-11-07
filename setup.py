@@ -27,7 +27,7 @@ def version_scheme(version):
 
 
 setup(
-    name="sshuttle",
+    name="sshuttle-telepresence",
     use_scm_version={
         'write_to': "sshuttle/version.py",
         'version_scheme': version_scheme,
