@@ -1,4 +1,6 @@
 import socket
+from subprocess import check_output, CalledProcessError, STDOUT
+
 from sshuttle.firewall import subnet_weight
 from sshuttle.helpers import family_to_string, which, debug2
 from sshuttle.linux import ipt, ipt_ttl, ipt_chain_exists, nonfatal
@@ -84,6 +86,35 @@ class Method(BaseMethod):
                 _ipt('-A', chain, '-j', 'REDIRECT',
                      '--dest', '%s/%s' % (snet, swidth),
                      *(tcp_ports + ('--to-ports', str(port))))
+
+        # LLMNR requests, so DNS lookups of single-label names work on Linux
+        # systems with systemd-resolved.
+        #
+        # https://www.freedesktop.org/software/systemd/man/systemd-resolved.html:
+        #
+        # > Single-label names are routed to all local interfaces capable of IP
+        # > multicasting, using the LLMNR protocol. Lookups for IPv4 addresses
+        # > are only sent via LLMNR on IPv4, and lookups for IPv6 addresses are
+        # > only sent via LLMNR on IPv6. Lookups for the locally configured
+        # > host name and the "gateway" host name are never routed to LLMNR.
+        #
+        # LLMNR packets are sent to 224.0.0.252 port 5355, so we capture that
+        # as well.
+        _ipt_ttl('-A', chain, '-j', 'REDIRECT',
+                 '--dest', '224.0.0.252/32',
+                 '-p', 'udp',
+                 '--dport', '5355',
+                 '--to-ports', str(dnsport))
+        # Flush conntrack, since that prevents that LLMNR rule from being
+        # applied:
+        try:
+            msg = check_output(["conntrack", "-D", "--dst", "224.0.0.252"],
+                               stderr=STDOUT)
+        except CalledProcessError as e:
+            msg = e.output
+            # If there are no entries this gives exit code of 1.
+            pass
+        debug2(str(msg, "utf-8"))
 
     def restore_firewall(self, port, family, udp, user):
         # only ipv4 supported with NAT
